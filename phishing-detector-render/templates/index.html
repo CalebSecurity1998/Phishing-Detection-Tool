@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phishing Detection Tool</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <main class="shell">
+        <section class="hero">
+            <p class="eyebrow">Cybersecurity Utility</p>
+            <h1>Phishing Detection Tool</h1>
+            <p class="subtitle">
+                Analyze email content, links, and attachment filenames for common phishing indicators.
+                This is an explainable heuristic scorer, not a final verdict engine.
+            </p>
+        </section>
+
+        <section class="panel">
+            <form id="analysis-form">
+                <div class="grid">
+                    <label>
+                        <span>Subject</span>
+                        <input id="subject" name="subject" type="text" placeholder="Urgent: Verify your account">
+                    </label>
+
+                    <label>
+                        <span>Sender</span>
+                        <input id="sender" name="sender" type="text" placeholder="security-alert@example.com">
+                    </label>
+                </div>
+
+                <label>
+                    <span>Email body</span>
+                    <textarea id="text" name="text" rows="8" placeholder="Paste suspicious email text here..."></textarea>
+                </label>
+
+                <div class="grid">
+                    <label>
+                        <span>Standalone URL</span>
+                        <input id="url" name="url" type="url" placeholder="http://example-login-check.com/account">
+                    </label>
+
+                    <label>
+                        <span>Attachment filenames</span>
+                        <input id="attachments" name="attachments" type="text" placeholder="invoice.zip, payment_update.exe">
+                    </label>
+                </div>
+
+                <div class="actions">
+                    <button type="submit">Analyze Risk</button>
+                    <button type="button" class="secondary" id="load-demo">Load Demo</button>
+                    <button type="reset" class="ghost">Clear</button>
+                </div>
+            </form>
+        </section>
+
+        <section id="result" class="result hidden" aria-live="polite">
+            <div class="score-card">
+                <div>
+                    <p class="eyebrow">Risk result</p>
+                    <h2 id="risk-level">—</h2>
+                    <p id="verdict"></p>
+                </div>
+                <div class="score-orb">
+                    <span id="score-value">0</span>
+                    <small>/100</small>
+                </div>
+            </div>
+
+            <div class="columns">
+                <article class="panel compact">
+                    <h3>URLs analyzed</h3>
+                    <ul id="urls-list"></ul>
+                </article>
+
+                <article class="panel compact">
+                    <h3>Top findings</h3>
+                    <ul id="findings-list"></ul>
+                </article>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const form = document.getElementById("analysis-form");
+        const result = document.getElementById("result");
+        const scoreValue = document.getElementById("score-value");
+        const riskLevel = document.getElementById("risk-level");
+        const verdict = document.getElementById("verdict");
+        const findingsList = document.getElementById("findings-list");
+        const urlsList = document.getElementById("urls-list");
+        const loadDemo = document.getElementById("load-demo");
+
+        form.addEventListener("submit", async (event) => {
+            event.preventDefault();
+
+            const payload = {
+                subject: document.getElementById("subject").value,
+                sender: document.getElementById("sender").value,
+                text: document.getElementById("text").value,
+                url: document.getElementById("url").value,
+                attachments: document.getElementById("attachments").value
+            };
+
+            const response = await fetch("/analyze", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify(payload)
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                alert(data.error || "Analysis failed.");
+                return;
+            }
+
+            scoreValue.textContent = data.score;
+            riskLevel.textContent = `${data.risk_level} Risk`;
+            verdict.textContent = data.verdict;
+
+            findingsList.innerHTML = "";
+            if (data.findings.length === 0) {
+                findingsList.innerHTML = "<li>No phishing indicators detected.</li>";
+            } else {
+                data.findings.slice(0, 10).forEach((finding) => {
+                    const li = document.createElement("li");
+                    li.innerHTML = `<strong>${finding.points} pts</strong> ${finding.detail}`;
+                    findingsList.appendChild(li);
+                });
+            }
+
+            urlsList.innerHTML = "";
+            if (data.urls.length === 0) {
+                urlsList.innerHTML = "<li>No URLs provided or detected.</li>";
+            } else {
+                data.urls.forEach((url) => {
+                    const li = document.createElement("li");
+                    li.textContent = url;
+                    urlsList.appendChild(li);
+                });
+            }
+
+            result.classList.remove("hidden");
+            result.scrollIntoView({behavior: "smooth", block: "start"});
+        });
+
+        loadDemo.addEventListener("click", () => {
+            document.getElementById("subject").value = "URGENT: Verify your account immediately!";
+            document.getElementById("sender").value = "security-support@example.com";
+            document.getElementById("text").value =
+                "Dear Customer, unusual activity was detected. Verify your account within 24 hours to avoid account suspension. " +
+                "Click here: http://192.0.2.10/login/verify-account";
+            document.getElementById("url").value = "";
+            document.getElementById("attachments").value = "invoice.zip";
+        });
+    </script>
+</body>
+</html>
